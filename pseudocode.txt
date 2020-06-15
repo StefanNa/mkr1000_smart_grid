@@ -1,0 +1,30 @@
+
+
+2. read ADC from "oscilloscope"
+	sample rate 10k
+
+3. 	read ADC from "oscilloscope"
+	save in array
+	read again
+	compare
+
+4. add low pass filter 
+	cut off 50 Hz
+
+5. experiment with cutoff 10-100Hz
+
+6. up sample rate to 20k
+
+7. zero crossing detection
+
+8. inrerpolate zero crossing?
+
+9. check if interrupt is constant (pre setup and then in the lab)
+
+10. connect LED to threshholds (+potentiometer)
+
+11. interface
+
+12.
+
+apply low pass filter
