@@ -32,7 +32,8 @@ void setup() {
   //Initialization
   Serial.begin(9600);
   AdcBooster();
-  
+  pinMode(1, OUTPUT);
+  pinMode(2, OUTPUT);
 }
 
 void loop() {
@@ -136,6 +137,7 @@ void tcDisable()
 
 void TC5_Handler (void)
 {
+  digitalWrite(2, HIGH);
   preVal = curVal;
   curVal = analogRead(A1);
 
@@ -152,4 +154,5 @@ void TC5_Handler (void)
   periodCount++;
   zeroTime++;
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
+  digitalWrite(1, LOW);
 }
