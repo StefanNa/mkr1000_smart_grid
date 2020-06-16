@@ -1,8 +1,12 @@
 volatile int sIndex; //Tracks sinewave points in array
 const int sampleCount = 1000; // Number of samples to read in block
 //int *values; //array to store sinewave points
-int values[sampleCount]; //array to store sinewave points
-uint32_t sampleRate = 300000; //sample rate of the sine wave
+int values[sampleCount]; //array to store measured values
+int timeArray[sampleCount]; //array to store time between samples
+uint32_t sampleRate = 20000; //sample rate of measurement
+unsigned long timer;
+const float bitZero = 4095/2;
+int count;
 
 
 void AdcBooster()
@@ -29,12 +33,12 @@ void setup() {
 }
 
 void loop() {
-  sIndex = 0;   //Set to zero to start from beginning of waveform
+  sIndex = 0;   //Set to zero to start from beginning
   tcConfigure(sampleRate); //setup the timer counter based off of the user entered sample rate
-  //loop until all the sine wave points have been played
+  timer = micros(); //measure time since program start
   while (sIndex<sampleCount)
   { 
- //start timer, once timer is done interrupt will occur and DAC value will be updated
+ //start timer, once timer is done interrupt will occur and ADC value will be updated
     tcStartCounter(); 
   }
   //disable and reset timer counter
@@ -43,9 +47,26 @@ void loop() {
 
   //print the array values to serial
   for(int i = 0; i < sampleCount ; i++){
-    Serial.println(values[i]);
+    Serial.print(values[i]);
+    Serial.print(" ");
+    Serial.println(timeArray[i]);
   }
-    Serial.println(sizeof(values)/sizeof(values[0]));
+  count = 0;
+  for(int i = 0; i < sampleCount-1; i++){
+    if(count > 10){
+      if(values[i] < bitZero && values[i+1] > bitZero){
+        Serial.print("samples between zero crossing: ");
+        Serial.println(count);
+        count = 0;
+      }else if(values[i] > bitZero && values[i+1] < bitZero){
+        Serial.print("samples between zero crossing: ");
+        Serial.println(count);
+        count = 0;
+      }
+    }
+    count++;
+  }
+
 
   delay(5000);
   
@@ -119,6 +140,8 @@ void TC5_Handler (void)
   //float voltage = (sensorVal / 4096.0) * 3.3;
   //values[sIndex] = voltage;
   values[sIndex] = analogRead(A1);
+  timeArray[sIndex] = micros() - timer;
+  timer = micros();
 
   sIndex++;
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
