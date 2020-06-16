@@ -1,20 +1,14 @@
-//volatile int sIndex; //Tracks sinewave points in array
-//const int sampleCount = 1000; // Number of samples to read in block
-//int *values; //array to store sinewave points
-//int values[sampleCount]; //array to store measured values
-//int timeArray[sampleCount]; //array to store time between samples
-
 int curVal;
 int preVal;
 
 uint32_t sampleRate = 20000; //sample rate of measurement
-const int countMax = sampleRate * 10; //determines the amount of samples read before outputting the frequency
+const int countMax = sampleRate * 2; //determines the amount of samples read before outputting the frequency
 unsigned long timer;
 const float bitZero = 4095.0/2.0;
 unsigned long count;
-unsigned long zeroTime = 0;
+float zeroTime = 0;
 unsigned long zeroCount;
-unsigned long difTime;
+unsigned long periodCount;
 float avgTime;
 
 
@@ -43,10 +37,8 @@ void setup() {
 void loop() {
   count = 0;   //Set to zero to start from beginning
   zeroCount = 0;
-  difTime = 0;
   tcConfigure(sampleRate); //setup the timer counter based off of the user entered sample rate
-  timer = micros(); //measure time since program start
-  while (count<countMax) //while loop to start interrupt until the count reaches countMax
+  while (zeroTime < (float) countMax) //while loop to start interrupt until the count reaches countMax
   { 
  //start timer, once timer is done interrupt will occur and ADC value will be updated
     tcStartCounter(); 
@@ -55,12 +47,18 @@ void loop() {
   tcDisable();
   tcReset();
 
-  //The average time between zero crossing is found:
-  avgTime = difTime/(zeroCount-1);
+  //Interpolation at the end
+  zeroTime = zeroTime - (curVal - bitZero)/(curVal - preVal);
 
-  //And the frequency is printed to serial
+  //Removing the end-tail of the wave after last rising zero-crossing
+  zeroTime = zeroTime - periodCount;
+
+  //The average time between zero crossing is found:
+  avgTime = zeroTime/(zeroCount-1);
+
+  //And is printed to serial
   Serial.print("Frequency: ");
-  Serial.println(1000000.0/(avgTime*2),4);  
+  Serial.println(1000000.0/avgTime,4);  
 
 }
 
@@ -130,25 +128,17 @@ void TC5_Handler (void)
   preVal = curVal;
   curVal = analogRead(A1);
 
-  if(zeroTime > 50){
-    if(preVal > bitZero && curVal < bitZero){
-      if(zeroCount != 0){
-        difTime = difTime + micros() - timer;
+  if(periodCount > 30){
+    if(preVal < bitZero && curVal > bitZero){
+      if(zeroCount == 0){
+        zeroTime = 0.0;
+        zeroTime = zeroTime - (curVal - bitZero)/(curVal - preVal);
       }
-      timer = micros();
+      periodCount = 0;
       zeroCount++;
-      zeroTime = 0;
-      
-    }else if(preVal < bitZero && curVal > bitZero){
-       if(zeroCount != 0){
-        difTime = difTime + micros() - timer;
-      }
-      timer = micros();
-      zeroCount++;
-      zeroTime = 0;
-     }
+    }   
   }
+  periodCount++;
   zeroTime++;
-  count++;
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
 }
