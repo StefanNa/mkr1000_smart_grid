@@ -1,6 +1,119 @@
 #define readPin A1
 #define writePin A0
-int sampleRate=20000;
+#define LED_PIN 1
+int sampleRate=10;
+int delay_=3000;
+int counter;
+bool interrupt;
+bool nofilter;
+
+double deltaT;
+int cutoff=50;
+float RC;
+float alpha;
+bool started=0;
+float filteredVal;
+float lastfilteredVal=0;
+//
+//values_[b]=alpha*values[b+1]+(1-alpha)*values[b];
+
+
+void setup() {
+  // put your setup code here, to run once:
+  Serial.begin(9600);
+  pinMode(LED_PIN, OUTPUT);
+  analogWriteResolution(10);
+  AdcBooster();
+}
+
+
+void loop() {
+  // put your main code here, to run repeatedly:
+//int sensorVal = analogRead(readPin);
+//analogWrite(writePin, sensorVal);
+delay(1000);
+tcConfigure(sampleRate);
+counter=0;
+Serial.println("no Filter");
+tcStartCounter();
+interrupt=true;
+nofilter=true;
+delay(delay_);
+interrupt=false;
+nofilter=false;
+digitalWrite(LED_PIN, 0);
+Serial.println("___________");
+
+deltaT=1.0/counter;
+RC=1/(2*3.1416*cutoff);
+alpha=deltaT/(RC+deltaT);
+Serial.println("Filter 50Hz");
+Serial.print("delta: ");Serial.println(deltaT,10);
+Serial.print("alpha: ");Serial.println(alpha,10);
+interrupt=true;
+delay(delay_);
+interrupt=false;
+digitalWrite(LED_PIN, 0);
+Serial.println("___________");
+
+cutoff=10;
+deltaT=1.0/counter;
+RC=1/(2*3.1416*cutoff);
+alpha=deltaT/(RC+deltaT);
+Serial.println("Filter 10Hz");
+Serial.print("delta: ");Serial.println(deltaT,10);
+Serial.print("alpha: ");Serial.println(alpha,10);
+started=0;
+interrupt=true;
+delay(delay_);
+interrupt=false;
+digitalWrite(LED_PIN, 0);
+Serial.println("___________");
+
+cutoff=100;
+deltaT=1.0/counter;
+RC=1/(2*3.1416*cutoff);
+alpha=deltaT/(RC+deltaT);
+Serial.println("Filter 100Hz");
+Serial.print("delta: ");Serial.println(deltaT,10);
+Serial.print("alpha: ");Serial.println(alpha,10);
+started=0;
+interrupt=true;
+delay(delay_);
+interrupt=false;
+Serial.println("___________");
+Serial.println();
+tcDisable();
+tcReset();
+
+digitalWrite(LED_PIN, 0);
+}
+
+
+
+
+
+void TC5_Handler (void)
+{
+if (interrupt==true && nofilter==false){
+  int sensorVal = analogRead(readPin);
+//Serial.println("started"); Serial.println(started);
+filteredVal = (!started)*sensorVal + started*alpha*sensorVal + started*(1-alpha)*lastfilteredVal;
+lastfilteredVal=filteredVal;
+analogWrite(writePin, filteredVal);
+digitalWrite(LED_PIN, started);
+++counter;
+  started=1;
+}
+else if (nofilter==true){
+  int sensorVal = analogRead(readPin);
+  analogWrite(writePin, sensorVal);
+  }
+  TC5->COUNT16.INTFLAG.bit.MC0 = 1;
+  
+}
+
+
 
 void AdcBooster()
 {
@@ -14,41 +127,6 @@ void AdcBooster()
  ADC->CTRLA.bit.ENABLE = 1;           // Enable ADC
  while( ADC->STATUS.bit.SYNCBUSY == 1 );    // Wait for synchronization
 } // AdcBooster
-
-void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  analogWriteResolution(10);
-  AdcBooster();
-  tcConfigure(sampleRate);
-}
-
-
-void loop() {
-  // put your main code here, to run repeatedly:
-//int sensorVal = analogRead(readPin);
-//analogWrite(writePin, sensorVal);
-tcConfigure(sampleRate);
-tcStartCounter();
-delay(1000);
-tcDisable();
-tcReset();
-}
-
-
-
-
-
-void TC5_Handler (void)
-{
-int sensorVal = analogRead(readPin);
-analogWrite(writePin, sensorVal);
-  TC5->COUNT16.INTFLAG.bit.MC0 = 1;
-}
-
-
-
-
 
 void tcConfigure(int sampleRate)
 {
