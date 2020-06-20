@@ -55,25 +55,25 @@ void loop() {
 
   //Removing the end-tail of the wave after last rising zero-crossing
   zeroTime = zeroTime - periodCount;
-  Serial.print("zeroTime: ");
-  Serial.println(zeroTime);
-  Serial.print("zeroCount: ");
-  Serial.println(zeroCount-1);
-  Serial.print("preVal: ");
-  Serial.println(preVal);
-  Serial.print("curVal: ");
-  Serial.println(curVal);
-  Serial.print("periodCount: ");
-  Serial.println(periodCount);
+//  Serial.print("zeroTime: ");
+//  Serial.println(zeroTime);
+//  Serial.print("zeroCount: ");
+//  Serial.println(zeroCount);
+//  Serial.print("preVal: ");
+//  Serial.println(preVal);
+//  Serial.print("curVal: ");
+//  Serial.println(curVal);
+//  Serial.print("periodCount: ");
+//  Serial.println(periodCount);
   //The average time between zero crossing is found:
-  avgTime = (zeroTime*(1.0/sampleRate))/(zeroCount-1);
+  avgTime = (zeroTime*(1000000.0/sampleRate))/(zeroCount-1);
 
   //frequency is calculated
   freq = 1.0/avgTime;
 
   //And is printed to serial
-  Serial.print("Frequency: ");
-  Serial.println(freq,4);
+//  Serial.print("Frequency: ");
+//  Serial.println(freq,4);
 
   //turn LED on if inside threshold of 49.975 Hz - 50.025 Hz
 //  if(freq > 49.975 && freq < 50.025){
@@ -150,14 +150,14 @@ void TC5_Handler (void)
   digitalWrite(2,HIGH);
   preVal = curVal;
   curVal = analogRead(A1);
+  
+  Serial.println(curVal);
 
-  if(periodCount > 20){ // buffer for fluctuation
+  if(periodCount > 5){
     if(preVal < bitZero && curVal > bitZero){
-      if(zeroCount == 0){ //first rising zero crossing
+      if(zeroCount == 0){
         zeroTime = 0.0;
-        if(curVal - preVal != 0){ //to not divide by zero
-        zeroTime = zeroTime - (curVal - bitZero)/(curVal - preVal);  //interpolation        
-        }
+        zeroTime = zeroTime - (curVal - bitZero)/(curVal - preVal);
       }
       periodCount = 0;
       zeroCount++;

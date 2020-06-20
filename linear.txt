@@ -1,0 +1,15 @@
+    /*
+// oldmeas=old measurement <511 ==(y_i-1) 
+//currmeas= current measurement >=511 == y     
+if (oldmeas < 511 && currmeas >= 511) {      // Note that this ONLY works if there is a wave of sufficient voltage!
+      // Do linear interpolation: terr=y/(y-y_i-1)
+      terror = float((currmeas - 511) / (currmeas - oldmeas));
+      //period = counts;
+      periods[idx] = counts - terror; // save the counts variable in a period variable, which is a table 10 size 
+      idx++;
+      if(idx >= avgSize) {
+        idx = 0;
+      }
+      counts = terror; // Reset counts
+    } 
+    */
