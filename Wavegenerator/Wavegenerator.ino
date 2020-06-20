@@ -2,9 +2,9 @@
 //Program by Stefan Nahstoll & Allan Wandall
 
 volatile int sIndex; //Tracks sinewave points in array
-int sampleCount = 100; // Number of samples to read in block
+int sampleCount = 400; // Number of samples to read in block
 int *wavSamples; //array to store sinewave points
-uint32_t sampleRate = 5000; //sample rate of the sine wave
+uint32_t sampleRate = 20000; //sample rate of the sine wave
 float offsetV = 0.5062; //offset in radians: sin^-1(0.8/(3.3/2)) - offset of 0.8V
 
 //Hz = sampleRate / sampleCount

@@ -1,6 +1,6 @@
 #define readPin A1
 #define writePin A0
-int sampleRate=20000;
+int sampleRate=10000;
 
 void AdcBooster()
 {
@@ -30,6 +30,7 @@ void loop() {
 //analogWrite(writePin, sensorVal);
 tcConfigure(sampleRate);
 tcStartCounter();
+while(1)
 delay(1000);
 tcDisable();
 tcReset();

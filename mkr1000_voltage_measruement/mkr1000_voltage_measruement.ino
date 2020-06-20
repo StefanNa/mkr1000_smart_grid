@@ -1,4 +1,4 @@
-const int sensorPin = A0;
+const int sensorPin = A1;
 const int array_size = 3000;
 float values[array_size];
 //float values_[array_size];
@@ -48,7 +48,7 @@ for (int i = 0; i < array_size; i++) {
 
     int sensorVal = analogRead(sensorPin);
     float voltage = (sensorVal / 4095.0) * 3.3;
-    values[i]=voltage;
+    values[i]=sensorVal;
     stopMicros=micros();
     timer_[i]=stopMicros-startMicros;
     startMicros=stopMicros;
@@ -71,7 +71,7 @@ for (int i = 0; i < array_size; i++) {
 //    Serial.print("Voltage: ");
 //    Serial.println(values[a]);
 //    Serial.print("Voltage_: ");
-    Serial.print(values[a],5);Serial.print(", ");Serial.println(values_[a]);
+    Serial.print(values[a],5);Serial.println(", ");//Serial.println(values_[a]);
 //    Serial.print("time: ");
 //    Serial.print(sizeof(timer_)/sizeof(timer_[0]));
 //    Serial.println(timer_[a]);
