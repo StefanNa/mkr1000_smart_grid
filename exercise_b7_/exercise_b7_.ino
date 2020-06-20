@@ -1,7 +1,7 @@
 #define readPin A1
 #define writePin A0
 #define LED_PIN 1
-int sampleRate=20000;
+int sampleRate=10000;
 int delay_=1000;
 int counter;
 int zerocounter;
@@ -14,6 +14,7 @@ int switchcase;
 unsigned long start_interrupt;
 
 float frequency;
+float max_freq=0.0;
 float period_time;
 int factor=10000;
 int deltaT;
@@ -58,9 +59,9 @@ digitalWrite(LED_PIN, 0);
 deltaT=1000000.0/counter;
 RC=1000000.0/(2*3.1416*cutoff);
 alpha=deltaT*factor/(RC+deltaT);
-Serial.print("rc: ");Serial.println(RC/factor,10);
+Serial.print("rc: ");Serial.println(RC/float(factor),10);
 Serial.print("delta: ");Serial.println(deltaT,10);
-Serial.print("alpha: ");Serial.println(alpha/factor,10);Serial.println();
+Serial.print("alpha: ");Serial.println(alpha/float(factor),10);Serial.println();
 
 Serial.println("Calibrate min max for zero crossing");
 switchcase=1;
@@ -81,6 +82,7 @@ Serial.println(" ");
 Serial.println("Read Frequency for 100 seconds");
 switchcase=2;
 for(int i=0;i<=10;i++){
+
 zero=0;
 tcConfigure(sampleRate);
 tcStartCounter();
@@ -88,8 +90,10 @@ delay(delay_);
 tcDisable();
 tcReset();
 Serial.print("zerocounter: ");Serial.println(zerocounter_);
-Serial.print("period_time: ");Serial.println(period_time,6);
+Serial.print("period_time 'us': ");Serial.println(period_time,6);
 Serial.print("frequency: ");Serial.println(frequency,6);
+Serial.print("max_frequency: ");Serial.println(max_freq,6);
+max_freq=0;
 Serial.println(" ");
 }
 
@@ -114,21 +118,43 @@ switch (switchcase) {
       else if (filteredVal>maximum){maximum=filteredVal;}
       break;
     case 2:
-      if (lastfilteredVal<zero_threshhold && filteredVal>=zero_threshhold){
+      if (lastfilteredVal<zero_threshhold && filteredVal>zero_threshhold){
       switch (zero) {
         case 0:
           counter=0;
-          zerocounter=counter;
           zero=1;
           break;
         case 1:
           zerocounter_=counter;
+//          Serial.print(counter-1);Serial.print(" ");Serial.print(deltaT);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(lastfilteredVal);;Serial.print(" ");Serial.println(zero_threshhold);
           period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
+//          Serial.println(period_time);
           frequency=1000000.0/period_time;
-//          Serial.println(micros()-start_interrupt);
-          if (frequency<48){
-          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
+          if (frequency>max_freq){max_freq=frequency;}
+//          if (frequency<49.5 | frequency>50.5){
+//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
           counter=0;
+//          Serial.println(micros()-start_interrupt);
+          break;
+    
+        }     
+      }
+      else if (lastfilteredVal<zero_threshhold && filteredVal==zero_threshhold){
+      switch (zero) {
+        case 0:
+          counter=0;
+          zero=1;
+          break;
+        case 1:
+          zerocounter_=counter;
+          period_time=(counter)*deltaT;
+          frequency=1000000.0/period_time;
+          if (frequency>max_freq){max_freq=frequency;}
+//          if (frequency<49.5 | frequency>50.5){
+//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
+          counter=0;
+//          Serial.println(micros()-start_interrupt);
+
           break;
     
         }     
