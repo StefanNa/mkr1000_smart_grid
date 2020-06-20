@@ -1,26 +1,28 @@
 #define readPin A1
 #define writePin A0
 #define LED_PIN 1
-int sampleRate=10000;
+int sampleRate=20000;
 int delay_=1000;
 int counter;
 int zerocounter;
+int zerocounter_;
 int zero_threshhold=0;
 bool interrupt;
 bool zero=0;
-int switchcase=0;
+int switchcase;
 
 unsigned long start_interrupt;
 
 float frequency;
 float period_time;
-float deltaT;
+int factor=10000;
+int deltaT;
 int cutoff=50;
 float RC;
-float alpha;
+int alpha;
 int sensorVal;
-int filteredVal;
-int lastfilteredVal=0;
+int filteredVal=0;
+int lastfilteredVal;
 int minimum=1023;
 int maximum=0;
 
@@ -35,6 +37,7 @@ void setup() {
 
 
 void loop() {
+switchcase=0;
 
 //start interrupt
 tcConfigure(sampleRate);
@@ -52,12 +55,12 @@ tcDisable();
 tcReset();
 digitalWrite(LED_PIN, 0);
 //calculate filter params
-deltaT=(1.0)/counter;
-RC=1/(2*3.1416*cutoff);
-alpha=deltaT/(RC+deltaT);
-Serial.print("rc: ");Serial.println(RC,10);
+deltaT=1000000.0/counter;
+RC=1000000.0/(2*3.1416*cutoff);
+alpha=deltaT*factor/(RC+deltaT);
+Serial.print("rc: ");Serial.println(RC/factor,10);
 Serial.print("delta: ");Serial.println(deltaT,10);
-Serial.print("alpha: ");Serial.println(alpha,10);Serial.println();
+Serial.print("alpha: ");Serial.println(alpha/factor,10);Serial.println();
 
 Serial.println("Calibrate min max for zero crossing");
 switchcase=1;
@@ -77,15 +80,14 @@ Serial.println(" ");
 
 Serial.println("Read Frequency for 100 seconds");
 switchcase=2;
-for(int i=0;i<=100;i++){
-counter=0;
+for(int i=0;i<=10;i++){
+zero=0;
 tcConfigure(sampleRate);
 tcStartCounter();
 delay(delay_);
 tcDisable();
 tcReset();
-if (zerocounter <=(int(sampleRate/50)+100)){
-Serial.print("zerocounter: ");Serial.println(zerocounter);}
+Serial.print("zerocounter: ");Serial.println(zerocounter_);
 Serial.print("period_time: ");Serial.println(period_time,6);
 Serial.print("frequency: ");Serial.println(frequency,6);
 Serial.println(" ");
@@ -97,9 +99,12 @@ Serial.println(" ");
 void TC5_Handler (void)
 {
   start_interrupt=micros();
+  lastfilteredVal=filteredVal;
   sensorVal = analogRead(readPin);
 //Serial.println("started"); Serial.println(started);
-filteredVal = alpha*sensorVal + (1-alpha)*lastfilteredVal;
+//filteredVal = alpha*sensorVal + (1-alpha)*lastfilteredVal;
+filteredVal = (alpha*sensorVal + (factor-alpha)*lastfilteredVal)/factor;
+//Serial.print(sensorVal); Serial.print(" "); Serial.println(filteredVal);
 analogWrite(writePin, filteredVal);
 ++counter;
 
@@ -109,25 +114,29 @@ switch (switchcase) {
       else if (filteredVal>maximum){maximum=filteredVal;}
       break;
     case 2:
-      if (lastfilteredVal<zero_threshhold && filteredVal>zero_threshhold){
+      if (lastfilteredVal<zero_threshhold && filteredVal>=zero_threshhold){
       switch (zero) {
         case 0:
+          counter=0;
           zerocounter=counter;
           zero=1;
           break;
         case 1:
-          zerocounter=counter-zerocounter-1;
-          period_time=((zerocounter)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
-          frequency=1.0/period_time;
-          zero=0;
+          zerocounter_=counter;
+          period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
+          frequency=1000000.0/period_time;
 //          Serial.println(micros()-start_interrupt);
+          if (frequency<48){
+          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
+          counter=0;
           break;
     
         }     
       }
-      break;
-  }
-  lastfilteredVal=filteredVal;
+      break;   
+      }
+      
+
 
 //if (filteredVal<minimum){minimum=filteredVal;}
 //else if (filteredVal>maximum){maximum=filteredVal;}
