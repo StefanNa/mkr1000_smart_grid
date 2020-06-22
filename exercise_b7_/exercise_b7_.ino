@@ -13,7 +13,7 @@ bool zero=0;
 int switchcase;
 
 unsigned long start_interrupt; //time counter for intterrupt
-unsigned long operating_time; //time counter for intterrupt
+unsigned long operating_time=0; //time counter for intterrupt
 
 float frequency;
 float max_freq=0.0;
@@ -84,9 +84,13 @@ Serial.println(" ");
 Serial.println("Read Frequency for 100 seconds");
 //enable interrupt routine to enter frequency measurement
 switchcase=2;
+
+
 for(int i=0;i<=100;i++){
 period_sum=0;
 zero_counter=0;
+operating_time=0;
+
 zero=0; // parameter to initiate the first measurement 
 tcConfigure(sampleRate);
 tcStartCounter();
@@ -99,6 +103,7 @@ Serial.print("period_time 'us': ");Serial.println(period_time,6);
 Serial.print("frequency: ");Serial.println(frequency,6);
 Serial.print("zerocounter: ");Serial.println(zerocounter_,6);
 
+Serial.print("max_operating_time: ");Serial.println(operating_time,6);
 Serial.print("max_frequency: ");Serial.println(max_freq,6);
 Serial.print("zerocounter_max: ");Serial.println(zerocounter_max,6);
 max_freq=0;
@@ -168,14 +173,14 @@ switch (switchcase) {
           frequency=1000000.0/period_time;
           period_sum +=period_time;
           zero_counter+=1;
-          if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
+          if (frequency>max_freq){max_freq=frequency; zerocounter_max=zerocounter_;}
           if (frequency<49.5 | frequency>50.5){
 //            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
             digitalWrite(LED_PIN2, HIGH);
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
               }
           else{
             digitalWrite(LED_PIN2, LOW);
+            
             }
           counter=0;
           
@@ -188,7 +193,7 @@ switch (switchcase) {
       }
       
 
-  Serial.println(micros()-start_interrupt);
+  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;Serial.println(operating_time);Serial.println(zerocounter_);Serial.println(zero);}
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
   
 }
