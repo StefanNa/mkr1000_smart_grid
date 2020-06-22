@@ -1,62 +1,63 @@
 #define readPin A1
 #define writePin A0
 #define LED_PIN 1
+#define LED_PIN2 2
 int sampleRate=10000;
-int delay_=1000;
-int counter;
-int zerocounter;
-int zerocounter_;
-int zero_threshhold=0;
-bool interrupt;
+int delay_=1000; //measuring interval
+int counter; // interrupt counter/also for between zero crossings
+int zero_counter; //counts zero crossings in timeinterval
+int zerocounter_; // used to save the counts at zero crossing to be displayed in void loop()
+int zerocounter_max=0;
+int zero_threshhold=0; //average value between peaks to detect zero crossings
 bool zero=0;
 int switchcase;
 
-unsigned long start_interrupt;
+unsigned long start_interrupt; //time counter for intterrupt
+unsigned long operating_time; //time counter for intterrupt
 
 float frequency;
 float max_freq=0.0;
 float period_time;
-int factor=10000;
-int deltaT;
-int cutoff=50;
-float RC;
-int alpha;
-int sensorVal;
+float period_sum; //sum of priod time in interval
+int factor=10000; //factor to enable computations with ints instead of floats
+int deltaT; //time passed per interrupt
+int cutoff=50; // low pass wilter cutoff
+float RC; // low pass wilter RC
+int alpha; // low pass wilter alpha
+int sensorVal; //ADC value 0-1023
 int filteredVal=0;
 int lastfilteredVal;
-int minimum=1023;
-int maximum=0;
+int minimum=1023; //minimum measured value to be updated as the code runs
+int maximum=0; //maximum measured value to be updated as the code runs
 
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(LED_PIN2, OUTPUT);
   analogWriteResolution(10);
-  AdcBooster();
+  AdcBooster(); // speed up adc reading 
 }
 
 
 void loop() {
-switchcase=0;
+switchcase=0; // in calibration phase 1 all but measuring the time per interrupt routine is deactivated from the interrupt routine
 
 //start interrupt
-tcConfigure(sampleRate);
+tcConfigure(sampleRate); // configure interrupt
 delay(2000);
 Serial.println("Calibrate deltaT and alpha");
-Serial.print("min: ");Serial.println(minimum);
-Serial.print("max: ");Serial.println(maximum);
 Serial.println("___________");
-tcStartCounter();
-counter=0;
-digitalWrite(LED_PIN, 1);
-tcStartCounter();
+counter=0; //reset counter
+digitalWrite(LED_PIN, 1); //turn on LED while interrupt is activated
+tcStartCounter(); // start interrupt
 delay(1000);
-tcDisable();
-tcReset();
+tcDisable(); //disable interrupt
+tcReset(); //reset settings
 digitalWrite(LED_PIN, 0);
 //calculate filter params
-deltaT=1000000.0/counter;
+deltaT=1000000.0/counter; 
 RC=1000000.0/(2*3.1416*cutoff);
 alpha=deltaT*factor/(RC+deltaT);
 Serial.print("rc: ");Serial.println(RC/float(factor),10);
@@ -64,7 +65,7 @@ Serial.print("delta: ");Serial.println(deltaT,10);
 Serial.print("alpha: ");Serial.println(alpha/float(factor),10);Serial.println();
 
 Serial.println("Calibrate min max for zero crossing");
-switchcase=1;
+switchcase=1; //enable first switch case to get min and max values in 
 digitalWrite(LED_PIN, 1);
 tcConfigure(sampleRate);
 tcStartCounter();
@@ -72,6 +73,7 @@ delay(1000);
 tcDisable();
 tcReset();
 digitalWrite(LED_PIN, 0);
+//calculate threshhold for zero crossing detection
 zero_threshhold=(maximum-minimum)/2;
 
 Serial.print("min: ");Serial.println(minimum);
@@ -80,20 +82,27 @@ Serial.print("zero_threshhold: ");Serial.println(zero_threshhold);
 Serial.println(" ");
 
 Serial.println("Read Frequency for 100 seconds");
+//enable interrupt routine to enter frequency measurement
 switchcase=2;
-for(int i=0;i<=10;i++){
-
-zero=0;
+for(int i=0;i<=100;i++){
+period_sum=0;
+zero_counter=0;
+zero=0; // parameter to initiate the first measurement 
 tcConfigure(sampleRate);
 tcStartCounter();
 delay(delay_);
 tcDisable();
 tcReset();
-Serial.print("zerocounter: ");Serial.println(zerocounter_);
+frequency=zero_counter*1000000/period_sum;
+Serial.print("zero crossings: ");Serial.println(zero_counter);
 Serial.print("period_time 'us': ");Serial.println(period_time,6);
 Serial.print("frequency: ");Serial.println(frequency,6);
+Serial.print("zerocounter: ");Serial.println(zerocounter_,6);
+
 Serial.print("max_frequency: ");Serial.println(max_freq,6);
+Serial.print("zerocounter_max: ");Serial.println(zerocounter_max,6);
 max_freq=0;
+zerocounter_max=0;
 Serial.println(" ");
 }
 
@@ -128,11 +137,19 @@ switch (switchcase) {
           zerocounter_=counter;
 //          Serial.print(counter-1);Serial.print(" ");Serial.print(deltaT);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(lastfilteredVal);;Serial.print(" ");Serial.println(zero_threshhold);
           period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
+          period_sum +=period_time;
+          zero_counter+=1;
 //          Serial.println(period_time);
           frequency=1000000.0/period_time;
-          if (frequency>max_freq){max_freq=frequency;}
-//          if (frequency<49.5 | frequency>50.5){
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
+          if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
+          if (frequency<49.5 | frequency>50.5){
+//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
+            digitalWrite(LED_PIN2, HIGH);
+//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
+              }
+          else{
+            digitalWrite(LED_PIN2, LOW);
+            }
           counter=0;
 //          Serial.println(micros()-start_interrupt);
           break;
@@ -149,11 +166,19 @@ switch (switchcase) {
           zerocounter_=counter;
           period_time=(counter)*deltaT;
           frequency=1000000.0/period_time;
-          if (frequency>max_freq){max_freq=frequency;}
-//          if (frequency<49.5 | frequency>50.5){
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);}
+          period_sum +=period_time;
+          zero_counter+=1;
+          if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
+          if (frequency<49.5 | frequency>50.5){
+//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
+            digitalWrite(LED_PIN2, HIGH);
+//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
+              }
+          else{
+            digitalWrite(LED_PIN2, LOW);
+            }
           counter=0;
-//          Serial.println(micros()-start_interrupt);
+          
 
           break;
     
@@ -163,35 +188,7 @@ switch (switchcase) {
       }
       
 
-
-//if (filteredVal<minimum){minimum=filteredVal;}
-//else if (filteredVal>maximum){maximum=filteredVal;}
-////Serial.print(zero_threshhold !=0);Serial.print(lastfilteredVal<zero_threshhold);Serial.println(filteredVal>zero_threshhold);
-////Serial.print(zero_threshhold);Serial.print(" ");Serial.print(lastfilteredVal);Serial.print(" ");Serial.println(filteredVal);
-//
-//
-//if (zero_threshhold !=0 && lastfilteredVal<zero_threshhold && filteredVal>zero_threshhold){
-//  if(zero==0){
-//  zerocounter=counter;
-//  zero=1;
-//  }
-//  else if (zero ==1){
-//    zerocounter=counter-zerocounter-1;
-//    period_time=((zerocounter)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
-//    frequency=1.0/period_time;
-//    zero=0;
-//    Serial.println(micros()-start_interrupt);
-
-//    Serial.print("zerocounter: ");Serial.println(zerocounter);
-//    Serial.print("filteredVal: ");Serial.println(filteredVal);
-//    Serial.print("lastfilteredVal: ");Serial.println(lastfilteredVal);
-//    Serial.print("period_time: ");Serial.println(period_time,6);
-//    Serial.print("frequency: ");Serial.println(frequency,6);
-
-//    }
-//  }
-
-
+  Serial.println(micros()-start_interrupt);
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
   
 }
