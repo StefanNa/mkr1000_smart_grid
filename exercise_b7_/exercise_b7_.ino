@@ -18,6 +18,7 @@ unsigned long operating_time=0; //time counter for intterrupt
 volatile float frequency;
 volatile float max_freq=0.0;
 volatile float period_time;
+volatile float subtract=0; //offset at the start of the interrupt to be subtracted
 volatile float period_sum; //sum of priod time in interval
 volatile int factor=10000; //factor to enable computations with ints instead of floats
 volatile int deltaT; //time passed per interrupt
@@ -94,7 +95,7 @@ operating_time=0;
 zero=0; // parameter to initiate the first measurement 
 tcConfigure(sampleRate);
 tcStartCounter();
-while ( zero_counter<=49){}
+while ( zero_counter<=14){}
 //delay(delay_);
 tcDisable();
 tcReset();
@@ -137,19 +138,20 @@ switch (switchcase) {
       if (lastfilteredVal<zero_threshhold && filteredVal>zero_threshhold){
       switch (zero) {
         case 0:
-          counter=0;
+          subtract=(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal);
+          counter=1;
           zero=1;
           break;
         case 1:
           zerocounter_=counter;
-//          Serial.print(counter-1);Serial.print(" ");Serial.print(deltaT);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(lastfilteredVal);;Serial.print(" ");Serial.println(zero_threshhold);
-          period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));
+//          Serial.print(counter);Serial.print(" ");Serial.print(deltaT);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(lastfilteredVal);;Serial.print(" ");Serial.println(zero_threshhold);
+          period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal))-subtract;
           period_sum +=period_time;
           zero_counter+=1;
 //          Serial.println(period_time);
           frequency=1000000.0/period_time;
           if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
-          if (frequency<49.5 | frequency>50.5){
+          if (frequency<49.975 | frequency>50.025){
 //            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
             digitalWrite(LED_PIN2, HIGH);
 //          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
@@ -157,7 +159,8 @@ switch (switchcase) {
           else{
             digitalWrite(LED_PIN2, LOW);
             }
-          counter=0;
+//          counter=0;
+          zero=0;
 //          Serial.println(micros()-start_interrupt);
           break;
     
@@ -166,17 +169,18 @@ switch (switchcase) {
       else if (lastfilteredVal<zero_threshhold && filteredVal==zero_threshhold){
       switch (zero) {
         case 0:
-          counter=0;
+          subtract=(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal);
+          counter=1;
           zero=1;
           break;
         case 1:
           zerocounter_=counter;
-          period_time=(counter)*deltaT;
+          period_time=(counter)*deltaT-subtract;
           frequency=1000000.0/period_time;
           period_sum +=period_time;
           zero_counter+=1;
           if (frequency>max_freq){max_freq=frequency; zerocounter_max=zerocounter_;}
-          if (frequency<49.5 | frequency>50.5){
+          if (frequency<49.975 | frequency>50.025){
 //            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
             digitalWrite(LED_PIN2, HIGH);
               }
@@ -184,7 +188,8 @@ switch (switchcase) {
             digitalWrite(LED_PIN2, LOW);
             
             }
-          counter=0;
+//          counter=0;
+          zero=0;
           
 
           break;
