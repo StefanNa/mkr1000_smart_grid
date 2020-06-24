@@ -1,9 +1,17 @@
 #include <LiquidCrystal.h>
+#include <ArduinoIoTCloud.h>
+#include <Arduino_ConnectionHandler.h>
 
 #define readPin A1
 #define writePin A0
 #define LED_PIN 7
 #define LED_PIN2 6
+
+const char THING_ID[] = "59279b5b-1d29-4c61-97f2-53033e1f56f4";
+
+const char SSID[]     = "HUAWEI P30";    // Network SSID (name)
+const char PASS[]     = "Stefan1995";    // Network password (use for WPA, or use as key for WEP)
+
 int sampleRate=20000;
 int delay_=1000; //measuring interval
 volatile int counter; // interrupt counter/also for between zero crossings
@@ -17,7 +25,8 @@ volatile int switchcase;
 unsigned long start_interrupt; //time counter for intterrupt
 unsigned long operating_time=0; //time counter for intterrupt
 
-volatile float frequency;
+volatile float frequency_vol;
+float frequency;
 volatile float max_freq=0.0;
 volatile float period_time;
 volatile float subtract=0; //offset at the start of the interrupt to be subtracted
@@ -36,6 +45,7 @@ float voltageRMS = 0;
 
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
+WiFiConnectionHandler ArduinoIoTPreferredConnection(SSID, PASS);
 
 void setup() {
   // put your setup code here, to run once:
@@ -47,6 +57,12 @@ void setup() {
   delay(500);
   
   Serial.begin(9600);
+
+  initProperties(); //Initiate the properties for IoT
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection); //connect to Arduino IoT cloud
+  setDebugMessageLevel(2);
+  ArduinoCloud.printDebugInfo(); //Setting up information gain on state of network and errors
+  
   pinMode(LED_PIN, OUTPUT);
   pinMode(LED_PIN2, OUTPUT);
   analogWriteResolution(10);
@@ -114,13 +130,21 @@ tcReset();
 //delay(500);
 frequency=zero_counter*1000000/period_sum;
 
+if (frequency<49.975 | frequency>50.025){
+  digitalWrite(LED_PIN2, LOW);
+}else{
+  digitalWrite(LED_PIN2, HIGH);
+}
+
 voltageRMS = (maximum-minimum)*(3.3/1023)*0.3536; //calculate RMS voltage
 
-lcd.setCursor(5,0);
+lcd.setCursor(6,0);
 lcd.print(frequency, DEC);
 
-lcd.setCursor(5,1);
+lcd.setCursor(6,1);
 lcd.print(voltageRMS, DEC);
+
+ArduinoCloud.update(); //send updated property information to cloud
 
 Serial.print("zero crossings: ");Serial.println(zero_counter);
 Serial.print("period_time 'us': ");Serial.println(period_time,6);
@@ -170,16 +194,8 @@ switch (switchcase) {
           period_sum +=period_time;
           zero_counter+=1;
 //          Serial.println(period_time);
-          frequency=1000000.0/period_time;
-          if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
-          if (frequency<49.975 | frequency>50.025){
-//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
-            digitalWrite(LED_PIN2, HIGH);
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
-              }
-          else{
-            digitalWrite(LED_PIN2, LOW);
-            }
+          frequency_vol=1000000.0/period_time;
+          if (frequency_vol>max_freq){max_freq=frequency_vol;zerocounter_max=zerocounter_;}
 //          counter=0;
           zero=0;
 //          Serial.println(micros()-start_interrupt);
@@ -197,18 +213,11 @@ switch (switchcase) {
         case 1:
           zerocounter_=counter;
           period_time=(counter)*deltaT-subtract;
-          frequency=1000000.0/period_time;
+          frequency_vol=1000000.0/period_time;
           period_sum +=period_time;
           zero_counter+=1;
-          if (frequency>max_freq){max_freq=frequency; zerocounter_max=zerocounter_;}
-          if (frequency<49.975 | frequency>50.025){
-//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
-            digitalWrite(LED_PIN2, HIGH);
-              }
-          else{
-            digitalWrite(LED_PIN2, LOW);
-            
-            }
+          if (frequency_vol>max_freq){max_freq=frequency_vol; zerocounter_max=zerocounter_;}
+          
 //          counter=0;
           zero=0;
           
@@ -297,4 +306,12 @@ void tcDisable()
 {
   TC5->COUNT16.CTRLA.reg &= ~TC_CTRLA_ENABLE;
   while (tcIsSyncing());
+}
+
+void initProperties(){
+
+  ArduinoCloud.setThingId(THING_ID);
+  ArduinoCloud.addProperty(frequency, READ, ON_CHANGE, NULL);
+  ArduinoCloud.addProperty(voltageRMS, READ, ON_CHANGE, NULL);
+
 }
