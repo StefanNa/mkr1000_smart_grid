@@ -1,32 +1,32 @@
 #define readPin A1
 #define writePin A0
-#define LED_PIN 1
-#define LED_PIN2 2
-int sampleRate=10000;
+#define LED_PIN 7
+#define LED_PIN2 6
+int sampleRate=20000;
 int delay_=1000; //measuring interval
-int counter; // interrupt counter/also for between zero crossings
-int zero_counter; //counts zero crossings in timeinterval
-int zerocounter_; // used to save the counts at zero crossing to be displayed in void loop()
-int zerocounter_max=0;
-int zero_threshhold=0; //average value between peaks to detect zero crossings
-bool zero=0;
-int switchcase;
+volatile int counter; // interrupt counter/also for between zero crossings
+volatile int zero_counter; //counts zero crossings in timeinterval
+volatile int zerocounter_; // used to save the counts at zero crossing to be displayed in void loop()
+volatile int zerocounter_max=0;
+volatile int zero_threshhold=0; //average value between peaks to detect zero crossings
+volatile bool zero=0;
+volatile int switchcase;
 
 unsigned long start_interrupt; //time counter for intterrupt
 unsigned long operating_time=0; //time counter for intterrupt
 
-float frequency;
-float max_freq=0.0;
-float period_time;
-float period_sum; //sum of priod time in interval
-int factor=10000; //factor to enable computations with ints instead of floats
-int deltaT; //time passed per interrupt
+volatile float frequency;
+volatile float max_freq=0.0;
+volatile float period_time;
+volatile float period_sum; //sum of priod time in interval
+volatile int factor=10000; //factor to enable computations with ints instead of floats
+volatile int deltaT; //time passed per interrupt
 int cutoff=50; // low pass wilter cutoff
-float RC; // low pass wilter RC
-int alpha; // low pass wilter alpha
-int sensorVal; //ADC value 0-1023
-int filteredVal=0;
-int lastfilteredVal;
+volatile float RC; // low pass wilter RC
+volatile int alpha; // low pass wilter alpha
+volatile int sensorVal; //ADC value 0-1023
+volatile int filteredVal=0;
+volatile int lastfilteredVal;
 int minimum=1023; //minimum measured value to be updated as the code runs
 int maximum=0; //maximum measured value to be updated as the code runs
 
@@ -50,12 +50,12 @@ delay(2000);
 Serial.println("Calibrate deltaT and alpha");
 Serial.println("___________");
 counter=0; //reset counter
-digitalWrite(LED_PIN, 1); //turn on LED while interrupt is activated
+digitalWrite(LED_PIN, HIGH); //turn on LED while interrupt is activated
 tcStartCounter(); // start interrupt
 delay(1000);
 tcDisable(); //disable interrupt
 tcReset(); //reset settings
-digitalWrite(LED_PIN, 0);
+digitalWrite(LED_PIN, LOW);
 //calculate filter params
 deltaT=1000000.0/counter; 
 RC=1000000.0/(2*3.1416*cutoff);
@@ -66,13 +66,13 @@ Serial.print("alpha: ");Serial.println(alpha/float(factor),10);Serial.println();
 
 Serial.println("Calibrate min max for zero crossing");
 switchcase=1; //enable first switch case to get min and max values in 
-digitalWrite(LED_PIN, 1);
+digitalWrite(LED_PIN, HIGH);
 tcConfigure(sampleRate);
 tcStartCounter();
 delay(1000);
 tcDisable();
 tcReset();
-digitalWrite(LED_PIN, 0);
+digitalWrite(LED_PIN, LOW);
 //calculate threshhold for zero crossing detection
 zero_threshhold=(maximum-minimum)/2;
 
@@ -94,9 +94,11 @@ operating_time=0;
 zero=0; // parameter to initiate the first measurement 
 tcConfigure(sampleRate);
 tcStartCounter();
-delay(delay_);
+while ( zero_counter<=49){}
+//delay(delay_);
 tcDisable();
 tcReset();
+//delay(500);
 frequency=zero_counter*1000000/period_sum;
 Serial.print("zero crossings: ");Serial.println(zero_counter);
 Serial.print("period_time 'us': ");Serial.println(period_time,6);
@@ -193,7 +195,7 @@ switch (switchcase) {
       }
       
 
-  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;Serial.println(operating_time);Serial.println(zerocounter_);Serial.println(zero);}
+  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;}
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
   
 }

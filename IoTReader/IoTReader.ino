@@ -11,7 +11,7 @@ const char THING_ID[] = "59279b5b-1d29-4c61-97f2-53033e1f56f4";
 const char SSID[]     = "HUAWEI P30";    // Network SSID (name)
 const char PASS[]     = "Stefan1995";    // Network password (use for WPA, or use as key for WEP)
 
-int sampleRate=10000;
+int sampleRate=20000;
 int delay_=1000; //measuring interval
 int counter; // interrupt counter/also for between zero crossings
 int zero_counter; //counts zero crossings in timeinterval
@@ -131,6 +131,7 @@ Serial.println(" ");
 
 void TC5_Handler (void)
 {
+  digitalWrite(LED_PIN2, HIGH);
   start_interrupt=micros();
   lastfilteredVal=filteredVal;
   sensorVal = analogRead(readPin);
@@ -162,14 +163,13 @@ switch (switchcase) {
 //          Serial.println(period_time);
           frequency=1000000.0/period_time;
           if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
-          if (frequency<49.5 | frequency>50.5){
-//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
-            digitalWrite(LED_PIN2, HIGH);
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
-              }
-          else{
-            digitalWrite(LED_PIN2, LOW);
-            }
+//          if (frequency<49.5 | frequency>50.5){
+//            digitalWrite(LED_PIN2, HIGH);
+////          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
+//              }
+//          else{
+//            digitalWrite(LED_PIN2, LOW);
+//            }
           counter=0;
 //          Serial.println(micros()-start_interrupt);
           break;
@@ -189,14 +189,14 @@ switch (switchcase) {
           period_sum +=period_time;
           zero_counter+=1;
           if (frequency>max_freq){max_freq=frequency;zerocounter_max=zerocounter_;}
-          if (frequency<49.5 | frequency>50.5){
-//            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
-            digitalWrite(LED_PIN2, HIGH);
-//          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
-              }
-          else{
-            digitalWrite(LED_PIN2, LOW);
-            }
+//          if (frequency<49.5 | frequency>50.5){
+////            digitalWrite(LED_PIN2, digitalRead(LED_PIN2) ^ 1);
+//            digitalWrite(LED_PIN2, HIGH);
+////          Serial.print(lastfilteredVal);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(counter);Serial.print(" ");Serial.println(frequency);
+//              }
+//          else{
+//            digitalWrite(LED_PIN2, LOW);
+//            }
           counter=0;
           
 
@@ -210,7 +210,7 @@ switch (switchcase) {
 
   //Serial.println(micros()-start_interrupt);
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
-  
+  digitalWrite(LED_PIN2, LOW);
 }
 
 
