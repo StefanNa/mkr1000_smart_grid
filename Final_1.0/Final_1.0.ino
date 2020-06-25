@@ -6,12 +6,17 @@
 #define writePin A0
 #define LED_PIN 7
 #define LED_PIN2 6
+#define motorPin A3
 
 const char THING_ID[] = "59279b5b-1d29-4c61-97f2-53033e1f56f4";
 
 const char SSID[]     = "HUAWEI P30";    // Network SSID (name)
 const char PASS[]     = "Stefan1995";    // Network password (use for WPA, or use as key for WEP)
 
+//const char SSID[]     = "YI-course";    // Network SSID (name)
+//const char PASS[]     = "IloveIoTandArduino12";    // Network password (use for WPA, or use as key for WEP)
+
+int frequencies[100];
 int sampleRate=20000;
 int delay_=1000; //measuring interval
 volatile int counter; // interrupt counter/also for between zero crossings
@@ -32,7 +37,7 @@ volatile float period_time;
 volatile float subtract=0; //offset at the start of the interrupt to be subtracted
 volatile float period_sum; //sum of priod time in interval
 volatile int factor=10000; //factor to enable computations with ints instead of floats
-volatile int deltaT; //time passed per interrupt
+volatile int deltaT=50; //time passed per interrupt
 int cutoff=50; // low pass wilter cutoff
 volatile float RC; // low pass wilter RC
 volatile int alpha; // low pass wilter alpha
@@ -43,7 +48,7 @@ int minimum=1023; //minimum measured value to be updated as the code runs
 int maximum=0; //maximum measured value to be updated as the code runs
 float voltageRMS = 0;
 
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+LiquidCrystal lcd(1, 0, 5, 4, 3, 2);
 
 WiFiConnectionHandler ArduinoIoTPreferredConnection(SSID, PASS);
 
@@ -54,17 +59,20 @@ void setup() {
   lcd.print("FRQ:");
   lcd.setCursor(0,1);
   lcd.print("RMSV:");
-  delay(500);
+  
   
   Serial.begin(9600);
-
+  delay(500);
   initProperties(); //Initiate the properties for IoT
   ArduinoCloud.begin(ArduinoIoTPreferredConnection); //connect to Arduino IoT cloud
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo(); //Setting up information gain on state of network and errors
-  
+  delay(5000);
   pinMode(LED_PIN, OUTPUT);
   pinMode(LED_PIN2, OUTPUT);
+  pinMode(motorPin, OUTPUT);
+  analogWrite(motorPin, 0);
+  
   analogWriteResolution(10);
   AdcBooster(); // speed up adc reading 
 }
@@ -72,7 +80,7 @@ void setup() {
 
 void loop() {
 switchcase=0; // in calibration phase 1 all but measuring the time per interrupt routine is deactivated from the interrupt routine
-
+zero=0;
 //start interrupt
 tcConfigure(sampleRate); // configure interrupt
 delay(2000);
@@ -86,7 +94,7 @@ tcDisable(); //disable interrupt
 tcReset(); //reset settings
 digitalWrite(LED_PIN, LOW);
 //calculate filter params
-deltaT=1000000.0/counter; 
+//deltaT=1000000.0/counter; 
 RC=1000000.0/(2*3.1416*cutoff);
 alpha=deltaT*factor/(RC+deltaT);
 Serial.print("rc: ");Serial.println(RC/float(factor),10);
@@ -119,24 +127,33 @@ for(int i=0;i<=100;i++){
 period_sum=0;
 zero_counter=0;
 operating_time=0;
+operating_time=0;
 
 zero=0; // parameter to initiate the first measurement 
 tcConfigure(sampleRate);
 tcStartCounter();
-while ( zero_counter<=14){}
+while ( zero_counter<=49){}
 //delay(delay_);
 tcDisable();
 tcReset();
 //delay(500);
 frequency=zero_counter*1000000/period_sum;
 
-if (frequency<49.975 | frequency>50.025){
-  digitalWrite(LED_PIN2, LOW);
-}else{
+if (frequency<49.9){
   digitalWrite(LED_PIN2, HIGH);
+  analogWrite(motorPin, 0);
+}else if(frequency>49.9 && frequency<50.1){
+  digitalWrite(LED_PIN2, LOW);
+  analogWrite(motorPin, 50*4);
 }
+else if (frequency>50.1){
+  digitalWrite(LED_PIN2, LOW);
+  analogWrite(motorPin, 1023);
+  }
 
 voltageRMS = (maximum-minimum)*(3.3/1023)*0.3536; //calculate RMS voltage
+voltageRMS = 240*0.3536*2; //calculate RMS voltage
+
 
 lcd.setCursor(6,0);
 lcd.print(frequency, DEC);
@@ -149,11 +166,11 @@ ArduinoCloud.update(); //send updated property information to cloud
 Serial.print("zero crossings: ");Serial.println(zero_counter);
 Serial.print("period_time 'us': ");Serial.println(period_time,6);
 Serial.print("frequency: ");Serial.println(frequency,6);
-Serial.print("zerocounter: ");Serial.println(zerocounter_,6);
+//Serial.print("zerocounter: ");Serial.println(zerocounter_,6);
 
-Serial.print("max_operating_time: ");Serial.println(operating_time,6);
-Serial.print("max_frequency: ");Serial.println(max_freq,6);
-Serial.print("zerocounter_max: ");Serial.println(zerocounter_max,6);
+//Serial.print("max_operating_time: ");Serial.println(operating_time,6);
+//Serial.print("max_frequency: ");Serial.println(max_freq,6);
+//Serial.print("zerocounter_max: ");Serial.println(zerocounter_max,6);
 max_freq=0;
 zerocounter_max=0;
 Serial.println(" ");
@@ -164,13 +181,10 @@ Serial.println(" ");
 
 void TC5_Handler (void)
 {
-  start_interrupt=micros();
+//  start_interrupt=micros();
   lastfilteredVal=filteredVal;
   sensorVal = analogRead(readPin);
-//Serial.println("started"); Serial.println(started);
-//filteredVal = alpha*sensorVal + (1-alpha)*lastfilteredVal;
 filteredVal = (alpha*sensorVal + (factor-alpha)*lastfilteredVal)/factor;
-//Serial.print(sensorVal); Serial.print(" "); Serial.println(filteredVal);
 analogWrite(writePin, filteredVal);
 ++counter;
 
@@ -184,21 +198,18 @@ switch (switchcase) {
       switch (zero) {
         case 0:
           subtract=(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal);
-          counter=1;
+          counter=0;
           zero=1;
           break;
         case 1:
           zerocounter_=counter;
-//          Serial.print(counter);Serial.print(" ");Serial.print(deltaT);Serial.print(" ");Serial.print(filteredVal);Serial.print(" ");Serial.print(lastfilteredVal);;Serial.print(" ");Serial.println(zero_threshhold);
-          period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal))-subtract;
+          period_time=((counter-1)*deltaT+(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal));//-subtract;
           period_sum +=period_time;
           zero_counter+=1;
-//          Serial.println(period_time);
-          frequency_vol=1000000.0/period_time;
-          if (frequency_vol>max_freq){max_freq=frequency_vol;zerocounter_max=zerocounter_;}
-//          counter=0;
+//          frequency_vol=1000000.0/period_time;
+//          if (frequency_vol>max_freq){max_freq=frequency_vol;zerocounter_max=zerocounter_;}
+            
           zero=0;
-//          Serial.println(micros()-start_interrupt);
           break;
     
         }     
@@ -207,16 +218,16 @@ switch (switchcase) {
       switch (zero) {
         case 0:
           subtract=(deltaT/(filteredVal-lastfilteredVal))*(zero_threshhold-lastfilteredVal);
-          counter=1;
+          counter=0;
           zero=1;
           break;
         case 1:
           zerocounter_=counter;
-          period_time=(counter)*deltaT-subtract;
-          frequency_vol=1000000.0/period_time;
+          period_time=(counter)*deltaT;//-subtract;
+//          frequency_vol=1000000.0/period_time;
           period_sum +=period_time;
           zero_counter+=1;
-          if (frequency_vol>max_freq){max_freq=frequency_vol; zerocounter_max=zerocounter_;}
+//          if (frequency_vol>max_freq){max_freq=frequency_vol; zerocounter_max=zerocounter_;}
           
 //          counter=0;
           zero=0;
@@ -230,7 +241,7 @@ switch (switchcase) {
       }
       
 
-  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;}
+//  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;}
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
   
 }
