@@ -16,7 +16,7 @@ const char PASS[]     = "Stefan1995";    // Network password (use for WPA, or us
 //const char SSID[]     = "YI-course";    // Network SSID (name)
 //const char PASS[]     = "IloveIoTandArduino12";    // Network password (use for WPA, or use as key for WEP)
 
-int frequencies[100];
+float frequencies[100];
 int sampleRate=20000;
 int delay_=1000; //measuring interval
 volatile int counter; // interrupt counter/also for between zero crossings
@@ -123,7 +123,7 @@ Serial.println("Read Frequency for 100 seconds");
 switchcase=2;
 
 
-for(int i=0;i<=100;i++){
+for(int i=0;i<100;i++){
 period_sum=0;
 zero_counter=0;
 operating_time=0;
@@ -138,6 +138,7 @@ tcDisable();
 tcReset();
 //delay(500);
 frequency=zero_counter*1000000/period_sum;
+frequencies[i]=frequency;
 
 if (frequency<49.9){
   digitalWrite(LED_PIN2, HIGH);
@@ -176,11 +177,23 @@ zerocounter_max=0;
 Serial.println(" ");
 }
 
+float mean =0;
+float var = 0;
+for(int i=0;i<100;i++){mean+= frequencies[i];} 
+mean=mean/100;
+for(int i=0;i<100;i++){var += (frequencies[i] - mean) * (frequencies[i] - mean);}
+var /= 100;
+float sd = sqrt(var);
+Serial.println("");
+Serial.println(mean,6);Serial.print(" ");Serial.println(sd,6);
+Serial.println("");
+while(1){}
 }
 
 
 void TC5_Handler (void)
 {
+  digitalWrite(LED_PIN, HIGH);
 //  start_interrupt=micros();
   lastfilteredVal=filteredVal;
   sensorVal = analogRead(readPin);
@@ -242,6 +255,7 @@ switch (switchcase) {
       
 
 //  if (micros()-start_interrupt>operating_time){operating_time=micros()-start_interrupt;}
+  digitalWrite(LED_PIN, LOW);
   TC5->COUNT16.INTFLAG.bit.MC0 = 1;
   
 }
